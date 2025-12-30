@@ -1,0 +1,54 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml '''
+              apiVersion: v1
+              kind: Pod
+              spec:
+                containers:
+                - name: python
+                  image: python:3.11-slim
+                  command:
+                  - sleep
+                  args:
+                  - infinity
+                  resources:
+                    requests:
+                      cpu: "200m"
+                      memory: "256Mi"
+                    limits:
+                      cpu: "500m"
+                      memory: "512Mi"
+            '''
+        }
+    }
+    stages {
+        stage('Install Dependencies') {
+            steps {
+                container('python') {
+                    sh 'pip install -r requirements.txt'
+                }
+            }
+        }
+        stage('Lint') {
+            steps {
+                container('python') {
+                    sh 'pip install flake8'
+                    sh 'flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics'
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                container('python') {
+                    sh 'pytest --junitxml=results.xml'
+                }
+            }
+            post {
+                always {
+                    junit 'results.xml'
+                }
+            }
+        }
+    }
+}
